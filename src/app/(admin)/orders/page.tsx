@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { Table, Space, Tag, Input, Select, Card, Row, Col, Statistic, DatePicker, Modal, Form, Typography, Button, Dropdown, message } from "antd";
+import { Table, Space, Tag, Input, Select, Card, Row, Col, Statistic, DatePicker, Modal, Form, Typography, Button, Dropdown, message, } from "antd";
 import {
   ShoppingCartOutlined,
   ClockCircleOutlined,
@@ -25,22 +25,39 @@ import {
   useTable,
 } from "@refinedev/antd";
 import { useSelect } from "@refinedev/antd";
-import { useList } from "@refinedev/core";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { supabase } from "../../libs/supabaseClient";
+
+import { useList, useInvalidate } from "@refinedev/core";
+
+// Bên trong component:
+
+
 interface Order {
   id: number;
-  orderNumber: string;
-  receiver_name: string;
-  email: string;
-  total: number;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  date: string;
+  created_at: string;
   items: number;
+  total_price: number;
   quantity: number;
-  receiver_phone: string;
-  receiver_address: string;
+
+  addresses?: {
+    full_name: string;
+    phone: string;
+    mail: string;
+    address_line: string;
+    communes?: {
+      name: string; // tên phường/xã
+      provinces?: {
+        name: string; // tên tỉnh
+      };
+    };
+  };
+
+  order_items?: {
+    quantity: number;
+  }[];
 }
 const { Title, Text } = Typography;
 const orderstest = [
@@ -75,20 +92,33 @@ const OrderList = () => {
     meta: {
       select: `
       id,
-      receiver_name,
-      quantity,
-      total_amount,
+      user_id,
+      address_id,
+      total_price,
+      status,
       created_at,
-      status:order_statuses (
-        id,
-        code,
-        name,
-        color
+      note,
+      addresses (
+        full_name,
+        phone,
+        mail,
+        address_line,
+        ward,
+        city,
+        communes (
+          name,
+          province_code,
+          provinces!fk_communes_province (
+            name
+          )
+        )
+      ),
+      order_items (
+        quantity
       )
     `,
     },
   });
-
   // const { selectProps } = useSelect({
   //   resource: "order_statuses",
   //   optionLabel: "label", // hiển thị
@@ -106,16 +136,7 @@ const OrderList = () => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      pending: 'gold',
-      processing: 'blue',
-      shipped: 'purple',
-      delivered: 'green',
-      cancelled: 'red'
-    };
-    return colors[status] || 'default';
-  };
+
   const getStatusIcon = (code: string) => {
     const map: Record<string, React.ReactNode> = {
       pending: <ClockCircleOutlined />,
@@ -126,32 +147,30 @@ const OrderList = () => {
     };
     return map[code];
   };
-  const getStatusStyle = (id: number) => {
-    switch (id) {
-      case 1: return { color: "gold", icon: <ClockCircleOutlined /> };
-      case 2: return { color: "orange", icon: <ClockCircleOutlined /> };
-      case 3: return { color: "blue", icon: <CheckCircleOutlined /> };
-      case 4: return { color: "purple", icon: <SyncOutlined spin /> };
-      case 5: return { color: "cyan", icon: <CarOutlined /> };
-      case 6: return { color: "green", icon: <CheckCircleOutlined /> };
-      case 7: return { color: "red", icon: <CloseCircleOutlined /> };
-      default: return { color: "default", icon: <ClockCircleOutlined /> };
-    }
+
+  const { result, isLoading } = useList({
+    resource: "orders",
+    pagination: { mode: "off" },
+    meta: {
+      select: `
+      id, total_price, status, created_at, note,
+      addresses (
+        full_name, phone, mail, address_line,
+        communes (
+          name,
+          provinces!fk_communes_province ( name )
+        )
+      ),
+      order_items ( quantity )
+    `,
+    },
+  });
+  const getStatusText = (status: string) => {
+    return statusOptions.find(s => s.value === status)?.label ?? status;
   };
 
-  const { data, isLoading } = useList({
-    resource: "orders",
-    pagination: { mode: "off" }, // lấy tất cả
-  });
-  const getStatusText = (status) => {
-    const labels = {
-      pending: 'Chờ xử lý',
-      processing: 'Đang xử lý',
-      shipped: 'Đã gửi hàng',
-      delivered: 'Đã giao',
-      cancelled: 'Đã hủy'
-    };
-    return labels[status] || status;
+  const getStatusColor = (status: string) => {
+    return getStatusStyle(status).color;
   };
 
   // const getStatusIcon = (status) => {
@@ -166,90 +185,59 @@ const OrderList = () => {
   // };
 
   // Calculate statistics
+  // ✅ MỚI — đúng với statusOptions trong DB
   const stats = React.useMemo(() => {
-    const result = {
+    const stats = {
       total: 0,
       pending: 0,
-      processing: 0,
-      shipped: 0,
-      delivered: 0,
+      paid: 0,
+      packing: 0,
+      shipping: 0,
+      completed: 0,
+      cancelled: 0,
     };
 
-    if (!data?.data) return result;
-
-    result.total = data.data.length;
-
-    data.data.forEach((order) => {
-      if (order.status in result) {
-        result[order.status]++;
-      }
+    if (!result?.data) return stats;
+    stats.total = result.data.length;
+    result.data.forEach((order) => {
+      if (order.status in stats) stats[order.status]++;
     });
-
-    return result;
-  }, [data]);
+    return stats;
+  }, [result]);
   const statusOptions = [
-    { value: 1, label: "Chờ xác nhận" },
-    { value: 2, label: "Chờ thanh toán" },
-    { value: 3, label: "Đã thanh toán" },
-    { value: 4, label: "Đang đóng gói" },
-    { value: 5, label: "Đang giao" },
-    { value: 6, label: "Hoàn thành" },
-    { value: 7, label: "Đã hủy" },
+    { value: "pending", label: "Đã đặt hàng", color: "gold", icon: <ShoppingCartOutlined /> },
+    { value: "paid", label: "Đã thanh toán", color: "cyan", icon: <CheckCircleOutlined /> },
+    { value: "packing", label: "Đang đóng gói", color: "orange", icon: <SyncOutlined spin /> },
+    { value: "shipping", label: "Đang giao hàng", color: "purple", icon: <CarOutlined /> },
+    { value: "completed", label: "Hoàn thành", color: "green", icon: <CheckCircleOutlined /> },
+    { value: "cancelled", label: "Đã hủy", color: "red", icon: <CloseCircleOutlined /> },
   ];
 
-  const handleChangeStatus = async (orderId: number, statusId: number) => {
-
-    // 1. UPDATE UI NGAY LẬP TỨC (optimistic UI)
-    setOrders(prev =>
-      prev.map((o: any) =>
-        o.id === orderId
-          ? {
-            ...o,
-            status: {
-              ...o.status,
-              id: statusId,
-              name: statusOptions.find(s => s.value === statusId)?.label,
-            },
-          }
-          : o
-      )
+  const getStatusStyle = (status: string) => {
+    return (
+      statusOptions.find((s) => s.value === status) ?? {
+        color: "default",
+        icon: <ClockCircleOutlined />,
+        label: status,
+      }
     );
+  };
 
-    // 2. Gọi API ngầm
+  const invalidate = useInvalidate();
+  const handleChangeStatus = async (orderId: number, status: string) => {
     const { error } = await supabase
       .from("orders")
-      .update({ status_id: statusId })
+      .update({ status }) // ← string trực tiếp
       .eq("id", orderId);
 
-    // 3. Nếu lỗi → rollback lại
     if (error) {
-      message.error("Cập nhật thất bại");
-
-      // reload lại 1 bản ghi để chắc ăn
-      const { data } = await supabase
-        .from("orders")
-        .select(`
-        id,
-        status:order_statuses (
-          id,
-          code,
-          name,
-          color
-        )
-      `)
-        .eq("id", orderId)
-        .single();
-
-      setOrders(prev =>
-        prev.map(o => (o.id === orderId ? { ...o, ...data } : o))
-      );
-
+      message.error("Cập nhật thất bại: " + error.message);
       return;
     }
 
     message.success("Đã cập nhật trạng thái");
+    invalidate({ resource: "orders", invalidates: ["list"] });
   };
-
   // Filter orders
   // React.useEffect(() => {
   //   let result = orders;
@@ -268,22 +256,23 @@ const OrderList = () => {
 
   //   setFilteredOrders(result);
   // }, [searchText, statusFilter, orders]);
-
-  const handleView = (record) => {
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
+  const handleView = (record: Order) => {
     setSelectedOrder(record);
     setIsModalVisible(true);
+    console.log("Selected Order:", record);
   };
 
-  const handleEdit = (record) => {
+  const handleEdit = (record: Order) => {
     setSelectedOrder(record);
     form.setFieldsValue(record);
     setIsEditModalVisible(true);
   };
 
-  const handleDelete = (record) => {
+  const handleDelete = (record: Order) => {
     Modal.confirm({
       title: 'Xác nhận xóa',
-      content: `Bạn có chắc chắn muốn xóa đơn hàng ${record.orderNumber}?`,
+      content: `Bạn có chắc chắn muốn xóa đơn hàng ${record.id} ? `,
       okText: 'Xóa',
       okType: 'danger',
       cancelText: 'Hủy',
@@ -302,40 +291,84 @@ const OrderList = () => {
     message.success('Cập nhật đơn hàng thành công!');
   };
   const handleExport = () => {
-    if (!orderstest || orderstest.length === 0) {
+    const data = result?.data;
+    if (!data || data.length === 0) {
       message.warning("Không có dữ liệu để xuất Excel");
       return;
     }
 
-    // Chuẩn hóa dữ liệu cho Excel
-    const exportData = orderstest.map((order, index) => ({
-      "STT": index + 1,
-      "Mã đơn hàng": order.order_code,
-      "Khách hàng": order.customer_name,
-      "Số điện thoại": order.phone,
-      "Tổng tiền": order.total_amount,
-      "Trạng thái": order.status,
-      "Ngày tạo": order.created_at,
-    }));
+    const exportData = data.map((order: any, index: number) => {
+      const addr = order.addresses;
+      const fullAddress = [
+        addr?.address_line,
+        addr?.communes?.name,
+        addr?.communes?.provinces?.name,
+      ].filter(Boolean).join(", ");
 
-    // Tạo worksheet & workbook
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Danh sách đơn hàng");
+      const totalQty = (order.order_items ?? []).reduce(
+        (sum: number, item: any) => sum + (item.quantity ?? 0), 0
+      );
 
-    // Xuất file
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
+      return {
+        "STT": index + 1,
+        "Mã đơn": `#${order.id}`,
+        "Khách hàng": addr?.full_name ?? "–",
+        "Số điện thoại": addr?.phone ?? "–",
+        "Email": addr?.mail ?? "–",
+        "Địa chỉ": fullAddress || "–",
+        "Số lượng SP": totalQty,
+        "Tổng tiền (VNĐ)": order.total_price ?? 0,
+        "Trạng thái": getStatusText(order.status),
+        "Ghi chú": order.note ?? "",
+        "Ngày đặt": dayjs(order.created_at).format("DD/MM/YYYY HH:mm"),
+      };
     });
 
-    const blob = new Blob([excelBuffer], {
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    // Tự căn độ rộng cột
+    const colWidths = Object.keys(exportData[0] || {}).map((key) => ({
+      wch: Math.max(key.length, ...exportData.map((row) => String(row[key] ?? "").length)) + 2,
+    }));
+    worksheet["!cols"] = colWidths;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Đơn hàng");
+
+    const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-
-    saveAs(blob, `don-hang-${Date.now()}.xlsx`);
+    saveAs(blob, `don-hang-${dayjs().format("DDMMYYYY-HHmm")}.xlsx`);
   };
+  // ✅ Lấy data gốc từ tableProps
+  const rawData: any[] = (tableProps.dataSource as any[]) ?? [];
 
+  // ✅ Filter client-side
+  const filteredOrders = rawData.filter((order) => {
+    const addr = order.addresses;
+    const fullName = addr?.full_name?.toLowerCase() ?? "";
+    const phone = addr?.phone?.toLowerCase() ?? "";
+    const orderId = String(order.id);
+    const q = searchText.trim().toLowerCase();
+
+    const matchSearch =
+      !q || fullName.includes(q) || phone.includes(q) || orderId.includes(q);
+
+    const matchStatus = !statusFilter || order.status === statusFilter;
+
+    // ✅ Lọc thời gian
+    const matchDate = (() => {
+      if (!dateRange || !dateRange[0] || !dateRange[1]) return true;
+      const orderDate = dayjs(order.created_at);
+      return (
+        orderDate.isAfter(dateRange[0].startOf("day").subtract(1, "ms")) &&
+        orderDate.isBefore(dateRange[1].endOf("day").add(1, "ms"))
+      );
+    })();
+
+    return matchSearch && matchStatus && matchDate;
+  });
 
   return (
     <div style={{ padding: 24, minHeight: '100vh' }}>
@@ -378,8 +411,8 @@ const OrderList = () => {
         <Col xs={24} sm={12} md={8} lg={4}>
           <Card>
             <Statistic
-              title="Đang xử lý"
-              value={stats.processing}
+              title="Đã thanh toán"
+              value={stats.paid}
               prefix={<SyncOutlined />}
               valueStyle={{ color: '#1890ff' }}
             />
@@ -389,7 +422,7 @@ const OrderList = () => {
           <Card>
             <Statistic
               title="Đã gửi hàng"
-              value={stats.shipped}
+              value={stats.shipping}
               prefix={<CarOutlined />}
               valueStyle={{ color: '#722ed1' }}
             />
@@ -399,9 +432,19 @@ const OrderList = () => {
           <Card>
             <Statistic
               title="Đã giao"
-              value={stats.delivered}
+              value={stats.completed}
               prefix={<CheckCircleOutlined />}
               valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={4}>
+          <Card>
+            <Statistic
+              title="Đã hủy"
+              value={stats.cancelled}
+              prefix={<CloseCircleOutlined />}
+              valueStyle={{ color: '#fb0000' }}
             />
           </Card>
         </Col>
@@ -428,46 +471,93 @@ const OrderList = () => {
                 value={statusFilter}
                 onChange={setStatusFilter}
               >
-                <Select.Option value="pending">Chờ xử lý</Select.Option>
-                <Select.Option value="processing">Đang xử lý</Select.Option>
-                <Select.Option value="shipped">Đã gửi hàng</Select.Option>
-                <Select.Option value="delivered">Đã giao</Select.Option>
-                <Select.Option value="cancelled">Đã hủy</Select.Option>
+                {statusOptions.map((opt) => {
+                  const s = getStatusStyle(opt.value);
+                  return (
+                    <Select.Option key={opt.value} value={opt.value}>
+                      <Tag icon={s.icon} color={s.color} style={{ margin: 0 }}>
+                        {opt.label}
+                      </Tag>
+                    </Select.Option>
+                  );
+                })}
               </Select>
 
             </Col>
             <Col xs={24} sm={12} md={8}>
-              <DatePicker.RangePicker style={{ width: '100%' }} placeholder={['Từ ngày', 'Đến ngày']} />
+              <DatePicker.RangePicker
+                style={{ width: '100%' }}
+                placeholder={['Từ ngày', 'Đến ngày']}
+                value={dateRange}
+                onChange={(dates) => setDateRange(dates as any)}
+              />
             </Col>
           </Row>
         </Space>
       </Card>
-
+      {(searchText || statusFilter) && (
+        <span style={{ fontSize: 12, color: "#888" }}>
+          {filteredOrders.length} / {rawData.length} đơn hàng
+        </span>
+      )}
       {/* Table */}
       <Card>
-        <Table {...tableProps} rowKey="id">
+        <Table
+          {...tableProps}
+          dataSource={filteredOrders}  // ✅ dùng data đã filter
+          rowKey="id"
+        >
           <Table.Column
             dataIndex="id"
             title="Mã đơn"
-            render={(v) => <Text strong>{v}</Text>}
+            render={(v) => <Text strong>#{v}</Text>}
           />
 
-          <Table.Column dataIndex="receiver_name" title="Khách hàng" />
-          <Table.Column dataIndex="email" title="Email" />
+          <Table.Column
+            title="Khách hàng"
+            render={(_, record: any) => (
+              <div>
+                <Text strong>{record.addresses?.full_name ?? "–"}</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: 12 }}>{record.addresses?.phone ?? ""}</Text>
+              </div>
+            )}
+          />
 
+          <Table.Column
+            title="Email"
+            render={(_, record: any) => (
+              <Text type="secondary">{record.addresses?.mail ?? "–"}</Text>
+            )}
+          />
 
+          <Table.Column
+            title="Địa chỉ"
+            render={(_, record: any) => {
+              const addr = record.addresses;
+
+              const fullAddress = [
+                addr?.address_line,
+                addr?.communes?.name,
+                addr?.communes?.provinces?.name,
+              ]
+                .filter(Boolean)
+                .join(", ");
+
+              return <Text>{fullAddress || "–"}</Text>;
+            }}
+          />
           <Table.Column
             dataIndex="created_at"
             title="Ngày đặt"
-            render={(value) => dayjs(value).format("DD/MM/YYYY")}
+            render={(value) => dayjs(value).format("DD/MM/YYYY HH:mm")}
           />
-          <Table.Column dataIndex="quantity" title="Số lượng" />
 
           <Table.Column
-            dataIndex="total_amount"
+            dataIndex="total_price"
             title="Tổng tiền"
             render={(v) => (
-              <Text strong>
+              <Text strong style={{ whiteSpace: "nowrap" }}>
                 {new Intl.NumberFormat("vi-VN", {
                   style: "currency",
                   currency: "VND",
@@ -476,59 +566,48 @@ const OrderList = () => {
             )}
           />
 
-
-
           <Table.Column
+            dataIndex="status"
             title="Trạng thái"
-            render={(_, record: any) => {
-              const status = record.status;
-
-              if (!status) {
-                return <Tag>Chưa xác định</Tag>;
-              }
-
-              const current = getStatusStyle(status.id);
-
+            render={(status: string, record: any) => {
+              const st = getStatusStyle(status);
               return (
                 <Select
-                  value={status.id}
-                  style={{ width: 170 }}
-                  onChange={(value) => handleChangeStatus(record.id, value)}
-                  dropdownStyle={{ padding: 6 }}
-                  options={statusOptions.map((s) => {
-                    const st = getStatusStyle(s.value);
-
-                    return {
-                      value: s.value,
-                      label: (
-                        <Tag
-                          icon={st.icon}
-                          color={st.color}
-                          style={{
-                            width: "100%",
-                            textAlign: "center",
-                            borderRadius: 8,
-                            padding: "4px 6px",
-                          }}
-                        >
-                          {s.label}
+                  value={status}
+                  style={{ minWidth: 160 }}
+                  onChange={(newStatus) => handleChangeStatus(record.id, newStatus)}
+                  variant="borderless"
+                  popupMatchSelectWidth={false}
+                >
+                  {statusOptions.map((opt) => {
+                    const s = getStatusStyle(opt.value);
+                    return (
+                      <Select.Option key={opt.value} value={opt.value}>
+                        <Tag icon={s.icon} color={s.color} style={{ margin: 0 }}>
+                          {opt.label}
                         </Tag>
-                      ),
-                    };
+                      </Select.Option>
+                    );
                   })}
-                  // style hiển thị khi đã chọn
-                  optionLabelProp="label"
-                  bordered={false}
-                  className="status-select"
-                  dropdownRender={(menu) => (
-                    <div style={{ padding: 4 }}>{menu}</div>
-                  )}
-                />
+                </Select>
               );
             }}
           />
 
+          <Table.Column
+            dataIndex="note"
+            title="Ghi chú"
+            render={(v) => v ? <Text type="secondary">{v}</Text> : <Text type="secondary">–</Text>}
+          />
 
+          <Table.Column
+            title="Thao tác"
+            render={(_, record: any) => (
+              <Space>
+                <Button icon={<EyeOutlined />} onClick={() => handleView(record)} />
+              </Space>
+            )}
+          />
         </Table>
 
         <Table.Column
@@ -558,16 +637,29 @@ const OrderList = () => {
         {selectedOrder && (
           <div>
             <Card title="Thông tin khách hàng" style={{ marginBottom: 16 }}>
-              <p><strong>Họ tên:</strong> {selectedOrder.receiver_name}</p>
-              <p><strong>Email:</strong> {selectedOrder.email}</p>
-              <p><strong>Số điện thoại:</strong> {selectedOrder.receiver_phone}</p>
-              <p><strong>Địa chỉ:</strong> {selectedOrder.receiver_address}</p>
+              <p><strong>Họ tên:</strong> {selectedOrder.addresses?.full_name ?? "–"}</p>
+              <p><strong>Email:</strong> {selectedOrder.addresses?.mail ?? "–"}</p>
+              <p><strong>Số điện thoại:</strong> {selectedOrder.addresses?.phone ?? "–"}</p>
+              <p>
+                <strong>Địa chỉ:</strong>{" "}
+                {selectedOrder.addresses
+                  ? `${selectedOrder.addresses.address_line}, ${selectedOrder.addresses.communes?.name ?? ""}, ${selectedOrder.addresses.communes?.provinces?.name ?? ""}`
+                  : "–"}
+              </p>
             </Card>
             <Card title="Thông tin đơn hàng">
-              <p><strong>Mã đơn:</strong> {selectedOrder.orderNumber}</p>
-              <p><strong>Ngày đặt:</strong> {selectedOrder.date}</p>
-              <p><strong>Số lượng sản phẩm:</strong> {selectedOrder.quantity}</p>
-              <p><strong>Tổng tiền:</strong> <Text strong style={{ color: '#1890ff', fontSize: 18 }}>{formatCurrency(selectedOrder.total)}</Text></p>
+              <p><strong>Mã đơn:</strong> {selectedOrder.id}</p>
+              <p>
+                <strong>Ngày đặt:</strong>{" "}
+                {new Date(selectedOrder.created_at).toLocaleString("vi-VN")}
+              </p>
+              <p>
+                <strong>Số lượng sản phẩm:</strong>{" "}
+                {(selectedOrder.order_items ?? []).reduce(
+                  (sum: number, item: any) => sum + (item.quantity ?? 0), 0
+                )}
+              </p>
+              <p><strong>Tổng tiền:</strong> <Text strong style={{ color: '#1890ff', fontSize: 18 }}>{formatCurrency(selectedOrder.total_price)}</Text></p>
               <p><strong>Trạng thái:</strong> <Tag icon={getStatusIcon(selectedOrder.status)} color={getStatusColor(selectedOrder.status)}>
                 {getStatusText(selectedOrder.status)}
               </Tag></p>
@@ -578,7 +670,7 @@ const OrderList = () => {
 
       {/* Edit Modal */}
       <Modal
-        title={`Chỉnh sửa đơn hàng ${selectedOrder?.orderNumber || ''}`}
+        title={`Chỉnh sửa đơn hàng ${selectedOrder?.id || ''} `}
         open={isEditModalVisible}
         onCancel={() => setIsEditModalVisible(false)}
         onOk={() => form.submit()}
@@ -615,8 +707,11 @@ const OrderList = () => {
             </Select>
           </Form.Item>
         </Form>
+
       </Modal>
+
     </div>
+
   );
 };
 

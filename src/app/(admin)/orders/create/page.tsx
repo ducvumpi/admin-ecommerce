@@ -166,7 +166,7 @@ export default function BlogPostCreate() {
       }}
       title="Tạo mới sản phẩm"
     >
-      <Form {...formProps} layout="vertical" onFinish={handleFinish}>
+      <Form form={form} {...formProps} layout="vertical" onFinish={handleFinish}>
         <Row gutter={24}>
           {/* CỘT TRÁI – 16/24 */}
           <Col span={16}>

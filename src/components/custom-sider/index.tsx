@@ -1,39 +1,59 @@
-"use client";
+// RefineProvider.tsx
+import {
+    ShoppingOutlined,
+    AppstoreOutlined,
+    ShoppingCartOutlined,
+    BgColorsOutlined,
+} from "@ant-design/icons";
 
-import { Layout, Menu } from "antd";
-import { useMenu, useGetIdentity } from "@refinedev/core";
-import Link from "next/link";
-
-const { Sider } = Layout;
-
-export const CustomSider = () => {
-    const { menuItems, selectedKey } = useMenu();
-    const { data: identity } = useGetIdentity();
-
-    const role = identity?.role;
-
-    const filteredMenuItems = menuItems.filter((item) => {
-        const roles = item.meta?.roles;
-        if (!roles) return true;        // không khai báo → ai cũng thấy
-        if (!role) return false;        // chưa load identity
-        return roles.includes(role);    // check role
-    });
-
-    return (
-        <Sider width={220}>
-            <Menu
-                mode="inline"
-                selectedKeys={[selectedKey]}
-                items={filteredMenuItems.map((item) => ({
-                    key: item.key,
-                    icon: item.icon,
-                    label: (
-                        <Link href={item.route ?? "#"}>
-                            {item.meta?.label ?? item.label}
-                        </Link>
-                    ),
-                }))}
-            />
-        </Sider>
-    );
-};
+resources = {
+    [
+    {
+        name: "products",
+        list: "/products",
+        create: "/products/create",
+        edit: "/products/edit/:id",
+        show: "/products/show/:id",
+        meta: {
+            label: "Sản phẩm",
+            canDelete: true,
+            icon: <ShoppingOutlined />,
+        },
+    },
+    {
+        name: "categories",
+        list: "/categories",
+        create: "/categories/create",
+        edit: "/categories/edit/:id",
+        show: "/categories/show/:id",
+        meta: {
+            label: "Danh mục",
+            canDelete: true,
+            icon: <AppstoreOutlined />,
+        },
+    },
+    {
+        name: "orders",
+        list: "/orders",
+        create: "/orders/create",
+        edit: "/orders/edit/:id",
+        show: "/orders/show/:id",
+        meta: {
+            label: "Đơn hàng",
+            canDelete: true,
+            icon: <ShoppingCartOutlined />,
+        },
+    },
+    {
+        name: "colors",
+        list: "/colors",
+        create: "/colors/create",
+        edit: "/colors/edit/:id",
+        show: "/colors/show/:id",
+        meta: {
+            label: "Màu sắc",
+            canDelete: true,
+            icon: <BgColorsOutlined />,
+        },
+    },
+]}

@@ -97,9 +97,9 @@ export default function BlogPostCreate() {
       if (!path) return false;
 
       const currentImages =
-        formProps.form?.getFieldValue("images") || [];
+        formProps.form?.getFieldValue("image_url") || [];
 
-      formProps.form?.setFieldValue("images", [
+      formProps.form?.setFieldValue("image_url", [
         ...currentImages,
         path,
       ]);
@@ -133,26 +133,19 @@ export default function BlogPostCreate() {
     optionValue: "id",
   });
 
-  const { selectProps: colorSelectProps } = useSelect({
-    resource: "colors",
-    optionLabel: "name",
-    optionValue: "id",
-  });
-  const { selectProps: sizeSelectProps } = useSelect({
-    resource: "sizes",
-    optionLabel: "name",
-    optionValue: "id",
-  });
+
   const handleFinish = async (values: any) => {
     try {
+      console.log("VALUES =", values);
+
       const productPayload = {
-        title: values.title,
+        name: values.name,
         slug: values.slug,
         description: values.description,
-        price: values.price,
-        gender: values.gender,
+        base_price: values.base_price,
+        gender_id: values.gender_id,        // ✅ FK int
         category_id: values.category_id,
-        images: values.images,
+        image_url: values.image_url ?? [],        // ✅ array
       };
 
       const { data: product, error } = await supabase
@@ -161,39 +154,31 @@ export default function BlogPostCreate() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) { console.error("INSERT PRODUCT ERROR =", error); throw error; }
 
-      const variants = values.color_id.flatMap((colorId: number) =>
-        values.size_id.map((sizeId: number) => ({
+      const variants = (values.color as string[]).flatMap((color: string) =>
+        (values.size as string[]).map((size: string) => ({
           product_id: product.id,
-          color_id: colorId,
-          size_id: sizeId,
+          color,
+          size,
+          stock: Number(values.stock),      // ✅ stock cho tất cả variants
         }))
       );
 
-      const { error: variantError } =
-        await supabase.from("variants").insert(variants);
+      const { error: variantError } = await supabase
+        .from("product_variants")
+        .insert(variants);
 
-      if (variantError) throw variantError;
-      open?.({
-        type: "success",
-        message: "Tạo sản phẩm thành công",
-      });
+      if (variantError) { console.error("INSERT VARIANT ERROR =", variantError); throw variantError; }
 
-      list("products"); // ✅ redirect
+      open?.({ type: "success", message: "Tạo sản phẩm thành công" });
+      list("products");
+
     } catch (err: any) {
-      console.error("CREATE PRODUCT ERROR FULL =", {
-        err,
-        message: err?.message,
-        details: err?.details,
-        hint: err?.hint,
-        code: err?.code,
-      });
-      throw err;
+      console.error("ERROR =", err?.message || err);
+      open?.({ type: "error", message: err?.message || "Có lỗi xảy ra" });
     }
-
   };
-
 
   return (
     <Create
@@ -214,7 +199,7 @@ export default function BlogPostCreate() {
             <Col span={12}>
               <Form.Item
                 label="Tên sản phẩm"
-                name="title"
+                name="name"
                 rules={[{ required: true }]}
               >
                 <Input placeholder="Nhập tên sản phẩm" />
@@ -244,7 +229,7 @@ export default function BlogPostCreate() {
             <Col span={8}>
               <Form.Item
                 label="Giá"
-                name="price"
+                name="base_price"
                 rules={[{ required: true }]}
               >
                 <Input type="number" />
@@ -253,53 +238,55 @@ export default function BlogPostCreate() {
             <Col span={8}>
               <Form.Item
                 label="Màu sắc"
-                name="color_id"
-                rules={[{ required: true, message: "Chọn ít nhất 1 màu" }]}
+                name="color"
+                rules={[{ required: true, message: "Nhập ít nhất 1 màu" }]}
               >
                 <Select
-                  mode="multiple"
-                  placeholder="Chọn màu"
-                  {...colorSelectProps}
-
+                  mode="tags"
+                  placeholder="Nhập màu rồi Enter (vd: Đỏ, Xanh)"
+                  tokenSeparators={[","]}
+                  open={false}
+                  suffixIcon={null}
                 />
               </Form.Item>
             </Col>
+
 
             <Col span={8}>
               <Form.Item
                 label="Kích thước"
-                name="size_id"
-                rules={[{ required: true, message: "Chọn ít nhất 1 size" }]}
+                name="size"
+                rules={[{ required: true, message: "Nhập ít nhất 1 size" }]}
               >
                 <Select
-                  mode="multiple"
-                  placeholder="Chọn kích thước"
-                  {...sizeSelectProps}
+                  mode="tags"
+                  placeholder="Nhập size rồi Enter (vd: S, M, L)"
+                  tokenSeparators={[","]}
+                  open={false}
+                  suffixIcon={null}
                 />
               </Form.Item>
             </Col>
-
             <Col span={8}>
               <Form.Item
                 label="Tồn kho"
-                name="instock"
+                name="stock"
                 rules={[{ required: true }]}
               >
                 <Input type="number" />
               </Form.Item>
             </Col>
-
             <Col span={8}>
               <Form.Item
                 label="Giới tính"
-                name="gender"
+                name="gender_id"
                 rules={[{ required: true }]}
               >
                 <Select
                   options={[
-                    { label: "Nam", value: "male" },
-                    { label: "Nữ", value: "female" },
-                    { label: "Unisex", value: "unisex" },
+                    { label: "Nam", value: 1 },
+                    { label: "Nữ", value: 2 },
+                    { label: "Unisex", value: 3 },
                   ]}
                 />
               </Form.Item>
@@ -334,7 +321,7 @@ export default function BlogPostCreate() {
         </Col>
 
         {/* Field ẩn */}
-        <Form.Item name="images" hidden>
+        <Form.Item name="image_url" hidden>
           <Input type="hidden" />
         </Form.Item>
       </Form>

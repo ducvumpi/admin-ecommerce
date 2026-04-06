@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 const ADMIN_ROUTES = [
   "/products",
-  "/variants",
+  "/product_variants",
   "/orders",
   "/categories",
   "/users",
@@ -47,7 +47,7 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     "/products/:path*",
-    "/variants/:path*",
+    "/product_variants/:path*",
     "/orders/:path*",
     "/categories/:path*",
     "/users/:path*",

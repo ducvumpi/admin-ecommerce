@@ -20,7 +20,7 @@ export const AppIcon: React.FC = () => {
     //   <path fill="currentColor" d="M14 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
     // </svg>
     <Image
-      src="/Logo Mail.png"
+      src="/logo.png"
       alt="App Icon"
       width={24}
       height={24}

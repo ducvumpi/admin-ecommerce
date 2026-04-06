@@ -2,27 +2,30 @@ import { AuthProvider } from "@refinedev/core";
 import { supabase } from "../../app/libs/supabaseClient";
 
 export const authProvider: AuthProvider = {
-  login: async ({ email, password }) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+ // providers/authProviders/authProvider.ts
+
+login: async ({ email, password }) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      return {
-        success: false,
-        error: {
-          name: "LoginError",
-          message: error.message,
-        },
-      };
+        const errorMessages: Record<string, string> = {
+            "Invalid login credentials": "Email hoặc mật khẩu không đúng",
+            "Email not confirmed": "Email chưa được xác nhận",
+            "User not found": "Tài khoản không tồn tại",
+            "Too many requests": "Đăng nhập quá nhiều lần, vui lòng thử lại sau",
+        };
+
+        return {
+            success: false,
+            error: {
+                name: "Đăng nhập thất bại",
+                message: errorMessages[error.message] || error.message,
+            },
+        };
     }
 
-    return {
-      success: true,
-      redirectTo: "/",
-    };
-  },
+    return { success: true, redirectTo: "/" };
+},
 
   logout: async () => {
     await supabase.auth.signOut();

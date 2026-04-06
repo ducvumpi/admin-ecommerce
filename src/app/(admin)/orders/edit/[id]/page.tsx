@@ -23,10 +23,11 @@ export default function ProductEdit() {
     optionLabel: "name",
     optionValue: "id",
   });
+  const [form] = Form.useForm();
 
   return (
     <Edit saveButtonProps={saveButtonProps}>
-      <Form {...formProps} layout="vertical">
+      <Form form={form} {...formProps} layout="vertical">
         <Form.Item
           label="Tên sản phẩm"
           name="title"

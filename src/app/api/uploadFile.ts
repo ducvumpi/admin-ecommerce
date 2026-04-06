@@ -6,28 +6,23 @@ const uploadFile = async (file: File): Promise<string | null> => {
 
         const fileName = `${Date.now()}-${file.name}`;
 
-        // 1. Upload bằng Supabase SDK (ĐÚNG)
         const { data, error } = await supabase.storage
-            .from("image") // tên bucket (public)
+            .from("image products")
             .upload(fileName, file);
 
         if (error) {
-            console.error("Upload error:", error);
+            console.error("Upload error:", error.message);
             return null;
         }
 
-        // 2. Lấy URL public (CHỈ GET, KHÔNG POST)
         const { data: publicData } = supabase.storage
-            .from("image")
+            .from("image products")
             .getPublicUrl(data.path);
 
-    
-        console.log("File uploaded at:", publicData.publicUrl);
         return publicData.publicUrl;
-    } catch (err) {
-        console.error("Unexpected upload error:", err);
+    } catch (err: any) {
+        console.error("Unexpected error:", err?.message);
         return null;
     }
 };
-
 export default uploadFile;

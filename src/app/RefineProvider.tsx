@@ -10,7 +10,13 @@ import { ColorModeContextProvider } from "@/contexts/color-mode";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import React from "react";
 import { authProvider } from "@providers/authProviders/authProvider";
-
+import customI18nProvider from "@/app/libs/i18nProvider";
+import {
+    ShoppingOutlined,
+    AppstoreOutlined,
+    ShoppingCartOutlined,
+    BgColorsOutlined,
+} from "@ant-design/icons";
 interface RefineProviderProps {
     children: React.ReactNode;
     defaultMode: "light" | "dark";
@@ -22,6 +28,7 @@ export function RefineProvider({ children, defaultMode }: RefineProviderProps) {
             <AntdRegistry>
                 <ColorModeContextProvider defaultMode={defaultMode}>
                     <Refine
+                        i18nProvider={customI18nProvider}
                         authProvider={authProvider}
                         routerProvider={routerProvider}
                         dataProvider={dataProviderSupabase}
@@ -36,6 +43,7 @@ export function RefineProvider({ children, defaultMode }: RefineProviderProps) {
                                 meta: {
                                     label: "Sản phẩm",
                                     canDelete: true,
+                                    icon: <ShoppingOutlined />,
                                 },
                             },
                             {
@@ -47,17 +55,7 @@ export function RefineProvider({ children, defaultMode }: RefineProviderProps) {
                                 meta: {
                                     label: "Danh mục",
                                     canDelete: true,
-                                },
-                            },
-                            {
-                                name: "variants",
-                                list: "/variants",
-                                create: "/variants/create",
-                                edit: "/variants/edit/:id",
-                                show: "/variants/show/:id",
-                                meta: {
-                                    label: "Màu sắc/Kích thước",
-                                    canDelete: true,
+                                    icon: <AppstoreOutlined />,
                                 },
                             },
                             {
@@ -69,19 +67,7 @@ export function RefineProvider({ children, defaultMode }: RefineProviderProps) {
                                 meta: {
                                     label: "Đơn hàng",
                                     canDelete: true,
-                                },
-                            },
-                            {
-                                name: "colors",
-                                list: "/colors",
-                                create: "/colors/create",
-                                edit: "/colors/edit/:id",
-                                show: "/colors/show/:id",
-                                meta: {
-                                    label: "Màu sắc",
-                                    canDelete: true,
-                                    hide: true,
-
+                                    icon: <ShoppingCartOutlined />,
                                 },
                             },
 
