@@ -51,7 +51,7 @@
     "cross-env": "^7.0.3",
     "eslint": "^8",
     "eslint-config-next": "^15.0.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.4.5"
   },
   "refine": {
     "projectId": "i0refO-qq8Lp2-3OKL9w"

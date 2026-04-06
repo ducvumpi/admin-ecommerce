@@ -153,14 +153,18 @@ export default function BlogPostList() {
   const [query, setQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "out" | "low" | "ok">("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const { tableProps, result, query: tableQuery } = useTable({
+  // ✅ ĐÚNG cho @refinedev/antd v6 + @refinedev/core v5
+  const { tableProps } = useTable({
     resource: "products",
     meta: { select: `*, product_variants (id, size, color, stock)` },
     syncWithLocation: false,
     pagination: { pageSize: 1000 },
   });
 
-  const products: any[] = result?.data ?? [];
+  // Lấy data và loading trực tiếp từ tableProps — luôn hoạt động mọi version
+  const products: any[] = (tableProps.dataSource as any[]) ?? [];
+  const isLoading = tableProps.loading as boolean;
+
   const categoryIds = products.map((item: any) => Number(item.category_id)).filter(Number.isFinite);
 
   useEffect(() => {
@@ -232,7 +236,7 @@ export default function BlogPostList() {
       <Table
         dataSource={pagedData}        // ✅ bỏ {...tableProps}
         rowKey="id"
-        loading={tableQuery?.isLoading}
+        loading={isLoading}
         pagination={{
           pageSize: PAGE_SIZE,
           current: currentPage,

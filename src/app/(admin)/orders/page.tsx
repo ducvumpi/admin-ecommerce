@@ -132,7 +132,7 @@ const OrderList = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [form] = Form.useForm();
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount: any) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
@@ -148,7 +148,7 @@ const OrderList = () => {
     return map[code];
   };
 
-  const { result, isLoading } = useList({
+  const { result, } = useList({
     resource: "orders",
     pagination: { mode: "off" },
     meta: {
@@ -200,7 +200,8 @@ const OrderList = () => {
     if (!result?.data) return stats;
     stats.total = result.data.length;
     result.data.forEach((order) => {
-      if (order.status in stats) stats[order.status]++;
+      const key = order.status as keyof typeof stats;
+      if (key in stats) stats[key]++;
     });
     return stats;
   }, [result]);
@@ -283,7 +284,8 @@ const OrderList = () => {
     });
   };
 
-  const handleUpdateStatus = (values) => {
+  const handleUpdateStatus = (values: any) => {
+    if (!selectedOrder) return; // ← add this guard
     setOrders(orders.map(o =>
       o.id === selectedOrder.id ? { ...o, ...values } : o
     ));
@@ -309,7 +311,7 @@ const OrderList = () => {
         (sum: number, item: any) => sum + (item.quantity ?? 0), 0
       );
 
-      return {
+      const row: { [key: string]: any } = {
         "STT": index + 1,
         "Mã đơn": `#${order.id}`,
         "Khách hàng": addr?.full_name ?? "–",
@@ -322,6 +324,7 @@ const OrderList = () => {
         "Ghi chú": order.note ?? "",
         "Ngày đặt": dayjs(order.created_at).format("DD/MM/YYYY HH:mm"),
       };
+      return row;
     });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -624,7 +627,7 @@ const OrderList = () => {
 
       {/* View Modal */}
       <Modal
-        title={`Chi tiết đơn hàng ${selectedOrder?.orderNumber || ''}`}
+        title={`Chi tiết đơn hàng #${selectedOrder?.id ?? ''}`}
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={[
