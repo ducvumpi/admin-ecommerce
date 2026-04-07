@@ -10,24 +10,16 @@ function AdminGate() {
   const { data: identity, isLoading } = useGetIdentity();
   const router = useRouter();
 
-  // 🔁 redirect effect
   useEffect(() => {
     if (!isLoading && !identity) {
       router.replace("/login");
     }
   }, [identity, isLoading, router]);
 
-  // ⏳ loading
-  if (isLoading) {
+  if (isLoading || !identity || identity.role == null) {
     return <Spin fullscreen />;
   }
 
-  // ⛔ chưa login → không render gì (đã redirect)
-  if (!identity) {
-    return null;
-  }
-
-  // ⛔ không phải admin
   if (identity.role !== "admin") {
     return (
       <Result
@@ -43,8 +35,8 @@ function AdminGate() {
     );
   }
 
-  // ✅ admin → resource đầu tiên
   return <NavigateToResource />;
+
 }
 
 export default function IndexPage() {

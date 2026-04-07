@@ -1,17 +1,30 @@
 "use client";
 
-import { useLogin } from "@refinedev/core";
+import { useLogin, useGetIdentity } from "@refinedev/core";
+import { useQueryClient } from "@tanstack/react-query"; // 🔥 thêm
 import { Form, Input, Typography, message } from "antd";
 import { LockOutlined, MailOutlined } from "@ant-design/icons";
+import { useRouter } from "next/navigation";
 
 const { Text } = Typography;
 
 export default function LoginPage() {
     const { mutate: login, isPending } = useLogin();
+    const { refetch } = useGetIdentity();
+    const queryClient = useQueryClient(); // 🔥 thêm
+    const router = useRouter();
     const [form] = Form.useForm();
 
     const onFinish = (values: { email: string; password: string }) => {
         login(values, {
+            onSuccess: async () => {
+                // 🔥 QUAN TRỌNG NHẤT
+                await queryClient.clear(); // 💥 reset toàn bộ cache
+
+                await refetch(); // lấy identity mới
+
+                router.replace("/");
+            },
             onError: (error) => {
                 const errorMessages: Record<string, string> = {
                     "Invalid login credentials": "Email hoặc mật khẩu không đúng",
@@ -20,12 +33,11 @@ export default function LoginPage() {
                     "Too many requests": "Đăng nhập quá nhiều lần, vui lòng thử lại sau",
                 };
 
-                const msg =
+                message.error(
                     errorMessages[error?.message] ||
                     error?.message ||
-                    "Đăng nhập thất bại";
-
-                message.error(msg);
+                    "Đăng nhập thất bại"
+                );
             },
         });
     };

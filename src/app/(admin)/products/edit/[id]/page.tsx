@@ -569,7 +569,7 @@ export default function ProductEdit() {
 
         <Form.Item
           label="Hình ảnh (cách nhau bằng dấu phẩy)"
-          name="images"
+          name="image_url"
           normalize={(value) =>
             typeof value === "string"
               ? value.split(",").map((s: string) => s.trim())
