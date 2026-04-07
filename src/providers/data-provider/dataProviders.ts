@@ -40,7 +40,7 @@ export const dataProvider: DataProvider = {
   create: async ({ resource, variables }) => {
     const { data, error } = await supabase
       .from(resource)
-      .insert(variables)
+      .insert(variables as any)
       .select()
       .single();
 
@@ -52,7 +52,7 @@ export const dataProvider: DataProvider = {
   update: async ({ resource, id, variables }) => {
     const { data, error } = await supabase
       .from(resource)
-      .update(variables)
+      .update(variables as any)
       .eq("id", id)
       .select()
       .single();
