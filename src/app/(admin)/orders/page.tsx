@@ -15,7 +15,6 @@ import {
   DeleteOutlined,
   MoreOutlined
 } from "@ant-design/icons";
-import dayjs from "dayjs";
 import {
   DateField,
   DeleteButton,
@@ -30,6 +29,13 @@ import { saveAs } from "file-saver";
 import { supabase } from "../../libs/supabaseClient";
 
 import { useList, useInvalidate } from "@refinedev/core";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
 
 // Bên trong component:
 
@@ -559,7 +565,7 @@ const OrderList = () => {
           <Table.Column
             dataIndex="created_at"
             title="Ngày đặt"
-            render={(value) => dayjs(value).format("DD/MM/YYYY HH:mm")}
+            render={(value) => dayjs(value).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm")}
           />
 
           <Table.Column
