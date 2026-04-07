@@ -1,25 +1,21 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense } from "react";
 import { Authenticated, useGetIdentity } from "@refinedev/core";
 import { Spin, Result, Button } from "antd";
 import { useRouter } from "next/navigation";
 import { NavigateToResource } from "@refinedev/nextjs-router";
 
 function AdminGate() {
-  const { data: identity, isLoading } = useGetIdentity();
+  const { data: identity, isLoading } = useGetIdentity<{ role: string }>();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!isLoading && !identity) {
-      router.replace("/login");
-    }
-  }, [identity, isLoading, router]);
-
-  if (isLoading || !identity || identity.role == null) {
+  // ⏳ Chờ identity load xong (tránh role = undefined → hiện 403 sớm)
+  if (isLoading || identity?.role == null) {
     return <Spin fullscreen />;
   }
 
+  // 🚫 Không phải admin
   if (identity.role !== "admin") {
     return (
       <Result
@@ -35,14 +31,15 @@ function AdminGate() {
     );
   }
 
+  // ✅ Admin → điều hướng vào resource đầu tiên
   return <NavigateToResource />;
-
 }
 
 export default function IndexPage() {
   return (
-    <Suspense fallback={<Spin />}>
-      <Authenticated key="authenticated">
+    // Authenticated tự xử lý redirect → /login nếu chưa đăng nhập
+    <Suspense fallback={<Spin fullscreen />}>
+      <Authenticated key="authenticated" fallback={<Spin fullscreen />}>
         <AdminGate />
       </Authenticated>
     </Suspense>
