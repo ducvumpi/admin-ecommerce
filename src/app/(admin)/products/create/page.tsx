@@ -161,6 +161,7 @@ export default function BlogPostCreate() {
           product_id: product.id,
           color,
           size,
+          price: Number(values.price),        // ✅ giá theo variant
           stock: Number(values.stock),      // ✅ stock cho tất cả variants
         }))
       );
@@ -265,6 +266,15 @@ export default function BlogPostCreate() {
                   open={false}
                   suffixIcon={null}
                 />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label="Giá theo màu sắc & kích thước"
+                name="price"
+                rules={[{ required: true }]}
+              >
+                <Input type="number" />
               </Form.Item>
             </Col>
             <Col span={8}>

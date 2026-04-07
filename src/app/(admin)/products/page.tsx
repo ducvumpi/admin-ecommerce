@@ -262,7 +262,7 @@ export default function BlogPostList() {
         <Table.Column dataIndex="id" title="ID" width={60} />
         <Table.Column dataIndex="name" title="Tên sản phẩm" />
         <Table.Column dataIndex="description" title="Mô tả" />
-        <Table.Column dataIndex="base_price" title="Giá" render={formatCurrency} />
+        <Table.Column dataIndex="base_price" title="Giá cơ bản" render={formatCurrency} />
         <Table.Column
           title="Bộ sưu tập"
           render={(record: Product) => {

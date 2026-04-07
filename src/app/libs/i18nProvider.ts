@@ -5,7 +5,7 @@ const customI18nProvider = {
             "buttons.create": "Tạo mới",
             "buttons.edit": "Chỉnh sửa",
             "buttons.delete": "Xóa",
-            "buttons.confirm": "Bạn có chắc chắn xoa không?",
+            "buttons.confirm": "Bạn có chắc chắn xóa không?",
             "buttons.save": "Lưu",
             "buttons.cancel": "Hủy",
             "buttons.show": "Xem",
