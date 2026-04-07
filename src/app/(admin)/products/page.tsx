@@ -157,6 +157,14 @@ export default function BlogPostList() {
   const { tableProps } = useTable({
     resource: "products",
     meta: { select: `*, product_variants (id, size, color, stock)` },
+    sorters: {
+      initial: [
+        {
+          field: "created_at",
+          order: "desc", // 🔥 mới nhất lên đầu
+        },
+      ],
+    },
     syncWithLocation: false,
     pagination: { pageSize: 1000 },
   });
