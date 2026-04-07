@@ -327,7 +327,7 @@ const OrderList = () => {
         "Tổng tiền (VNĐ)": order.total_price ?? 0,
         "Trạng thái": getStatusText(order.status),
         "Ghi chú": order.note ?? "",
-        "Ngày đặt": dayjs(order.created_at).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm"),
+        "Ngày đặt": dayjs.utc(order.created_at).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm"),
       };
     });
 
@@ -565,7 +565,7 @@ const OrderList = () => {
           <Table.Column
             dataIndex="created_at"
             title="Ngày đặt"
-            render={(value) => dayjs(value).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm")}
+            render={(value) => dayjs.utc(value).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm")}
           />
 
           <Table.Column
@@ -666,7 +666,7 @@ const OrderList = () => {
               <p><strong>Mã đơn:</strong> {selectedOrder.id}</p>
               <p>
                 <strong>Ngày đặt:</strong>{" "}
-                {dayjs(selectedOrder.created_at).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm")}
+                {dayjs.utc(selectedOrder.created_at).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm")}
               </p>
               <p>
                 <strong>Số lượng sản phẩm:</strong>{" "}
