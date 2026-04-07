@@ -31,14 +31,14 @@
       ],
       "@components/*": [
         "./src/components/*"
-      ],
+      ] // ✅ Bỏ trailing comma
     },
     "incremental": true
   },
   "include": [
-    "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "global.d.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [

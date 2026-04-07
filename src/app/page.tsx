@@ -1,20 +1,60 @@
 "use client";
 
-import { Suspense } from "react";
-import { Authenticated, useGetIdentity } from "@refinedev/core";
-import { Spin, Result, Button } from "antd";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { NavigateToResource } from "@refinedev/nextjs-router";
+import { supabase } from "@/app/libs/supabaseClient";
+import { Spin, Result, Button } from "antd";
 
-function AdminGate() {
-  const { data: identity, isLoading } = useGetIdentity<{ role: string }>();
+type Status = "loading" | "unauthenticated" | "forbidden" | "admin";
+
+export default function IndexPage() {
   const router = useRouter();
+  const [status, setStatus] = useState<Status>("loading");
 
-  if (isLoading || identity?.role == null) {
+  useEffect(() => {
+    const run = async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session) {
+        setStatus("unauthenticated");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.session.user.id)
+        .maybeSingle();
+
+      if (profile?.role !== "admin") {
+        setStatus("forbidden");
+        return;
+      }
+
+      setStatus("admin");
+    };
+
+    run();
+  }, []);
+
+  // 🔥 redirect phải đặt trong useEffect
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/login");
+    }
+
+    if (status === "admin") {
+      router.replace("/products");
+    }
+  }, [status, router]);
+
+  // ⏳ loading
+  if (status === "loading") {
     return <Spin fullscreen />;
   }
 
-  if (identity.role !== "admin") {
+  // ❌ không có quyền → hiển thị UI
+  if (status === "forbidden") {
     return (
       <Result
         status="403"
@@ -22,26 +62,13 @@ function AdminGate() {
         subTitle="Bạn không có quyền truy cập"
         extra={
           <Button onClick={() => router.replace("/login")}>
-            Quay lại đăng nhập
+            Đăng nhập lại
           </Button>
         }
       />
     );
   }
 
-  return <NavigateToResource />;
-}
-
-export default function IndexPage() {
-  return (
-    <Suspense fallback={<Spin fullscreen />}>
-      <Authenticated
-        key="authenticated"
-        fallback={<Spin fullscreen />}
-      >
-        {/* key theo timestamp để force remount sau mỗi lần auth thay đổi */}
-        <AdminGate key={typeof window !== "undefined" ? sessionStorage.getItem("auth_version") ?? "0" : "0"} />
-      </Authenticated>
-    </Suspense>
-  );
+  // ⏳ đang redirect
+  return <Spin fullscreen />;
 }

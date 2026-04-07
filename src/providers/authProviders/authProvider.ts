@@ -43,37 +43,39 @@ export const authProvider: AuthProvider = {
   },
 
   check: async () => {
-    // 🔥 getUser() thay vì getSession() để luôn verify với server
-    const { data } = await supabase.auth.getUser();
+    const { data } = await supabase.auth.getSession(); // 🔥 đổi sang cái này
 
-    if (!data?.user) {
+    if (!data?.session) {
       return {
         authenticated: false,
         redirectTo: "/login",
       };
     }
 
-    return { authenticated: true };
+    return {
+      authenticated: true,
+    };
   },
 
   getIdentity: async () => {
     const { data: userData } = await supabase.auth.getUser();
 
+    console.log("user:", userData);
+
     if (!userData?.user) return null;
 
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", userData.user.id)
-      .single();
+      .maybeSingle();
 
-    // 🔥 profile null (chưa có row) → trả null để tránh role = undefined
-    if (!profile) return null;
+    console.log("profile:", profile, error); // 🔥 thêm dòng này
 
     return {
       id: userData.user.id,
       name: userData.user.email,
-      role: profile.role,
+      role: profile?.role ?? null,
     };
   },
 

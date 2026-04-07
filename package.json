@@ -1,5 +1,5 @@
 {
-  "name": "refine-project",
+  "name": "admin-store",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -39,19 +39,21 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "supabase": "^2.65.7",
-    "tailwind": "^4.0.0",
+    "tailwindcss": "^3.4.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/file-saver": "^2.0.7",
     "@types/js-cookie": "^3.0.6",
+    "@types/lodash-es": "^4.17.12",
     "@types/node": "^20",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "cross-env": "^7.0.3",
     "eslint": "^8",
     "eslint-config-next": "^15.0.3",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "tailwindcss": "^3.4.0"
   },
   "refine": {
     "projectId": "i0refO-qq8Lp2-3OKL9w"

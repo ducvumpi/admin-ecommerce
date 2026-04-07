@@ -33,7 +33,7 @@ export default function AdminLayout({
                 title="403"
                 subTitle="Bạn không có quyền truy cập"
                 extra={
-                    <Button onClick={() => router.replace("/")}>
+                    <Button onClick={() => router.replace("/login")}>
                         Quay lại
                     </Button>
                 }
