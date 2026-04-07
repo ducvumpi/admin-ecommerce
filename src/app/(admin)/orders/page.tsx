@@ -327,7 +327,7 @@ const OrderList = () => {
         "Tổng tiền (VNĐ)": order.total_price ?? 0,
         "Trạng thái": getStatusText(order.status),
         "Ghi chú": order.note ?? "",
-        "Ngày đặt": dayjs(order.created_at).format("DD/MM/YYYY HH:mm"),
+        "Ngày đặt": dayjs(order.created_at).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm"),
       };
     });
 
@@ -375,7 +375,7 @@ const OrderList = () => {
     // ✅ Lọc thời gian
     const matchDate = (() => {
       if (!dateRange || !dateRange[0] || !dateRange[1]) return true;
-      const orderDate = dayjs(order.created_at);
+      const orderDate = dayjs(order.created_at).tz("Asia/Ho_Chi_Minh");
       return (
         orderDate.isAfter(dateRange[0].startOf("day").subtract(1, "ms")) &&
         orderDate.isBefore(dateRange[1].endOf("day").add(1, "ms"))
@@ -666,7 +666,7 @@ const OrderList = () => {
               <p><strong>Mã đơn:</strong> {selectedOrder.id}</p>
               <p>
                 <strong>Ngày đặt:</strong>{" "}
-                {new Date(selectedOrder.created_at).toLocaleString("vi-VN")}
+                {dayjs(selectedOrder.created_at).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY HH:mm")}
               </p>
               <p>
                 <strong>Số lượng sản phẩm:</strong>{" "}
