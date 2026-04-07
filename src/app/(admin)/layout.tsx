@@ -10,18 +10,18 @@ export default function AdminLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { data: isAuth, isLoading } = useIsAuthenticated();
-    const { data: identity } = useGetIdentity();
+    const { data: isAuth, isLoading: authLoading } = useIsAuthenticated();
+    const { data: identity, isLoading: identityLoading } = useGetIdentity<{ role: string }>();
     const router = useRouter();
 
-    // 🚫 CHƯA LOGIN → LOGIN
     useEffect(() => {
-        if (!isLoading && !isAuth) {
+        if (!authLoading && !isAuth) {
             router.replace("/login");
         }
-    }, [isAuth, isLoading, router]);
+    }, [isAuth, authLoading, router]);
 
-    if (isLoading) return <Spin fullscreen />;
+    // ⏳ Chờ cả auth lẫn identity load xong
+    if (authLoading || identityLoading) return <Spin fullscreen />;
 
     if (!isAuth) return null;
 
