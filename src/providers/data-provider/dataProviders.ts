@@ -6,23 +6,24 @@ export const dataProvider: DataProvider = {
     return "";
   },
 
-  getList: async ({ resource, pagination }) => {
-    const { current = 1, pageSize = 10 } = pagination ?? {};
-    const from = (current - 1) * pageSize;
-    const to = from + pageSize - 1;
+ getList: async ({ resource, pagination }) => {
+  const { currentPage = 1, pageSize = 10 } = pagination ?? {};
 
-    const { data, error, count } = await supabase
-      .from(resource)
-      .select("*", { count: "exact" })
-      .range(from, to);
+  const from = (currentPage - 1) * pageSize;
+  const to = from + pageSize - 1;
 
-    if (error) throw error;
+  const { data, error, count } = await supabase
+    .from(resource)
+    .select("*", { count: "exact" })
+    .range(from, to);
 
-    return {
-      data,
-      total: count || 0,
-    };
-  },
+  if (error) throw error;
+
+  return {
+    data,
+    total: count || 0,
+  };
+},
 
   getOne: async ({ resource, id }) => {
     const { data, error } = await supabase
