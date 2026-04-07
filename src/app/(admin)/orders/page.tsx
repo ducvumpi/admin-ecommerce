@@ -293,13 +293,12 @@ const OrderList = () => {
     message.success('Cập nhật đơn hàng thành công!');
   };
   const handleExport = () => {
-    const data = result?.data;
-    if (!data || data.length === 0) {
+    if (!filteredOrders || filteredOrders.length === 0) {
       message.warning("Không có dữ liệu để xuất Excel");
       return;
     }
 
-    const exportData = data.map((order: any, index: number) => {
+    const exportData = filteredOrders.map((order: any, index: number) => {
       const addr = order.addresses;
       const fullAddress = [
         addr?.address_line,
@@ -311,7 +310,7 @@ const OrderList = () => {
         (sum: number, item: any) => sum + (item.quantity ?? 0), 0
       );
 
-      const row: { [key: string]: any } = {
+      return {
         "STT": index + 1,
         "Mã đơn": `#${order.id}`,
         "Khách hàng": addr?.full_name ?? "–",
@@ -324,26 +323,33 @@ const OrderList = () => {
         "Ghi chú": order.note ?? "",
         "Ngày đặt": dayjs(order.created_at).format("DD/MM/YYYY HH:mm"),
       };
-      return row;
     });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
 
-    // Tự căn độ rộng cột
     const colWidths = Object.keys(exportData[0] || {}).map((key) => ({
-      wch: Math.max(key.length, ...exportData.map((row) => String(row[key] ?? "").length)) + 2,
+      wch: Math.max(
+        key.length,
+        ...exportData.map((row) => String((row as Record<string, any>)[key] ?? "").length)
+      ) + 2,
     }));
     worksheet["!cols"] = colWidths;
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Đơn hàng");
 
+    // 🔥 Tên file có kèm khoảng thời gian nếu đang lọc ngày
+    const dateSuffix = dateRange?.[0] && dateRange?.[1]
+      ? `_${dateRange[0].format("DDMMYYYY")}-${dateRange[1].format("DDMMYYYY")}`
+      : "";
+
     const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    saveAs(blob, `don-hang-${dayjs().format("DDMMYYYY-HHmm")}.xlsx`);
+    saveAs(blob, `don-hang${dateSuffix}_${dayjs().format("DDMMYYYY-HHmm")}.xlsx`);
   };
+
   // ✅ Lấy data gốc từ tableProps
   const rawData: any[] = (tableProps.dataSource as any[]) ?? [];
 
