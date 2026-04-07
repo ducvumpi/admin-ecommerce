@@ -1,7 +1,7 @@
 "use client";
 
 import { useLogin, useGetIdentity } from "@refinedev/core";
-import { useQueryClient } from "@tanstack/react-query"; // 🔥 thêm
+import { useQueryClient } from "@tanstack/react-query";
 import { Form, Input, Typography, message } from "antd";
 import { LockOutlined, MailOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
@@ -10,19 +10,22 @@ const { Text } = Typography;
 
 export default function LoginPage() {
     const { mutate: login, isPending } = useLogin();
-    const { refetch } = useGetIdentity();
-    const queryClient = useQueryClient(); // 🔥 thêm
+    const { refetch: refetchIdentity } = useGetIdentity();
+    const queryClient = useQueryClient();
     const router = useRouter();
     const [form] = Form.useForm();
 
     const onFinish = (values: { email: string; password: string }) => {
         login(values, {
             onSuccess: async () => {
-                // 🔥 QUAN TRỌNG NHẤT
-                await queryClient.clear(); // 💥 reset toàn bộ cache
+                // 1️⃣ Xóa cache identity cũ (không xóa toàn bộ để tránh side effect)
+                queryClient.removeQueries({ queryKey: ["getUserIdentity"] });
+                queryClient.removeQueries({ queryKey: ["authenticated"] });
 
-                await refetch(); // lấy identity mới
+                // 2️⃣ Fetch identity mới, đợi xong mới navigate
+                await refetchIdentity();
 
+                // 3️⃣ Navigate sau khi identity đã có trong cache
                 router.replace("/");
             },
             onError: (error) => {

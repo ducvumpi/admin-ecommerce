@@ -10,12 +10,10 @@ function AdminGate() {
   const { data: identity, isLoading } = useGetIdentity<{ role: string }>();
   const router = useRouter();
 
-  // ⏳ Chờ identity load xong (tránh role = undefined → hiện 403 sớm)
   if (isLoading || identity?.role == null) {
     return <Spin fullscreen />;
   }
 
-  // 🚫 Không phải admin
   if (identity.role !== "admin") {
     return (
       <Result
@@ -31,16 +29,18 @@ function AdminGate() {
     );
   }
 
-  // ✅ Admin → điều hướng vào resource đầu tiên
   return <NavigateToResource />;
 }
 
 export default function IndexPage() {
   return (
-    // Authenticated tự xử lý redirect → /login nếu chưa đăng nhập
     <Suspense fallback={<Spin fullscreen />}>
-      <Authenticated key="authenticated" fallback={<Spin fullscreen />}>
-        <AdminGate />
+      <Authenticated
+        key="authenticated"
+        fallback={<Spin fullscreen />}
+      >
+        {/* key theo timestamp để force remount sau mỗi lần auth thay đổi */}
+        <AdminGate key={typeof window !== "undefined" ? sessionStorage.getItem("auth_version") ?? "0" : "0"} />
       </Authenticated>
     </Suspense>
   );
