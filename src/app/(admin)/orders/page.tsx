@@ -95,6 +95,14 @@ const orderstest = [
 const OrderList = () => {
   const { tableProps } = useTable({
     resource: "orders",
+    sorters: {
+      initial: [
+        {
+          field: "created_at",
+          order: "desc",
+        },
+      ],
+    },
     meta: {
       select: `
       id,
