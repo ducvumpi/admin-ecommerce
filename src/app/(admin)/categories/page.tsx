@@ -38,7 +38,7 @@ export default function CategoryList() {
   return (
     <List title={"Danh mục sản phẩm"}>
       <Table {...tableProps} rowKey="id">
-        <Table.Column dataIndex="id" title={"ID"} />
+        <Table.Column dataIndex="id" title={"Số lượng"} />
         <Table.Column dataIndex="name" title={"Tên sản phẩm"} />
         <Table.Column dataIndex="image" title={"Hình ảnh"} key="image"
           render={(value) => (
@@ -51,7 +51,7 @@ export default function CategoryList() {
           render={(_, record: BaseRecord) => (
             <Space>
               <EditButton hideText size="small" recordItemId={record.id} />
-              <ShowButton hideText size="small" recordItemId={record.id} />
+              {/* <ShowButton hideText size="small" recordItemId={record.id} /> */}
               <DeleteButton
                 hideText
                 size="small"

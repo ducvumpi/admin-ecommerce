@@ -35,6 +35,15 @@ export function RefineProvider({ children, defaultMode }: RefineProviderProps) {
                         notificationProvider={useNotificationProvider}
                         resources={[
                             {
+                                name: "dashboard",
+                                list: "/dashboard",
+                                meta: {
+                                    label: "Dashboard",
+                                    canDelete: true,
+                                    icon: <ShoppingOutlined />,
+                                },
+                            },
+                            {
                                 name: "products",
                                 list: "/products",
                                 create: "/products/create",

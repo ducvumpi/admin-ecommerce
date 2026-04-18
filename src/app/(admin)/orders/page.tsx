@@ -633,16 +633,7 @@ const OrderList = () => {
           />
         </Table>
 
-        <Table.Column
-          title="Thao tác"
-          render={(_, record) => (
-            <Space>
-              <Button icon={<EyeOutlined />} />
-              {/* <Button icon={<EditOutlined />} />
-                <Button danger icon={<DeleteOutlined />} /> */}
-            </Space>
-          )}
-        />
+
       </Card>
 
       {/* View Modal */}

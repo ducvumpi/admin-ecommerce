@@ -44,7 +44,7 @@ export default function IndexPage() {
     }
 
     if (status === "admin") {
-      router.replace("/products");
+      router.replace("/dashboard");
     }
   }, [status, router]);
 

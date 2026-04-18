@@ -259,7 +259,8 @@ export default function BlogPostList() {
           rowExpandable: (record: any) => (record.product_variants ?? []).length > 0,
         }}
       >
-        <Table.Column dataIndex="id" title="ID" width={60} />
+        {/* <Table.Column dataIndex="id" title="ID" width={60} /> */}
+        <Table.Column dataIndex="id" title={"Mã đơn hàng"} />
         <Table.Column dataIndex="name" title="Tên sản phẩm" />
         <Table.Column dataIndex="description" title="Mô tả" />
         <Table.Column dataIndex="base_price" title="Giá cơ bản" render={formatCurrency} />
@@ -308,11 +309,12 @@ export default function BlogPostList() {
           render={(_, record: BaseRecord) => (
             <Space>
               <EditButton hideText size="small" recordItemId={record.id} />
-              <ShowButton hideText size="small" recordItemId={record.id} />
+              {/* <ShowButton hideText size="small" recordItemId={record.id} /> */}
               <DeleteButton hideText size="small" recordItemId={record.id} />
             </Space>
           )}
         />
+
       </Table>
     </List>
   );

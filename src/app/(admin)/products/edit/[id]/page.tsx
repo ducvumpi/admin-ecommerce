@@ -11,9 +11,9 @@ interface SizeEntry {
   tempId: string;
   size: string;
   stock: number;
+  price: number; // 👈 thêm
   _deleted?: boolean;
 }
-
 interface ColorEntry {
   tempId: string;
   color: string;
@@ -220,6 +220,7 @@ const VariantEditor = React.forwardRef<
         tempId: uid(),
         size: v.size ?? "",
         stock: v.stock ?? 0,
+        price: v.price ?? 0, // 👈 THÊM DÒNG NÀY
       });
     });
     return Array.from(map.values());
@@ -270,7 +271,12 @@ const VariantEditor = React.forwardRef<
               await updateVariant({
                 resource: "product_variants",
                 id: sz.id,
-                values: { color: colorLabel, size: sz.size, stock: sz.stock },
+                values: {
+                  color: colorLabel,
+                  size: sz.size,
+                  stock: sz.stock,
+                  price: sz.price, // 👈 thêm
+                },
               });
             }
           } else {
@@ -283,6 +289,7 @@ const VariantEditor = React.forwardRef<
                 color: colorLabel,
                 size: sz.size,
                 stock: sz.stock,
+                price: sz.price, // 👈 thêm
               },
             });
           }
@@ -319,7 +326,8 @@ const VariantEditor = React.forwardRef<
         tempId: uid(),
         color: "#888888",
         colorName: "",
-        sizes: [{ tempId: uid(), size: "", stock: 0 }],
+        price: 0, // 👈 thêm
+        sizes: [{ tempId: uid(), size: "", stock: 0, price: 0 }],
       },
     ]);
   }
@@ -335,7 +343,7 @@ const VariantEditor = React.forwardRef<
       p.map((e) =>
         e.tempId !== cTid
           ? e
-          : { ...e, sizes: [...e.sizes, { tempId: uid(), size: "", stock: 0 }] }
+          : { ...e, sizes: [...e.sizes, { tempId: uid(), size: "", stock: 0, price: 0 }] }
       )
     );
   }
@@ -567,6 +575,13 @@ export default function ProductEdit() {
           <Select {...categorySelectProps} />
         </Form.Item>
 
+        <Form.Item
+          label="Giá theo màu & size"
+          name="price"
+          rules={[{ required: true }]}
+        >
+          <Input />
+        </Form.Item>
         <Form.Item
           label="Hình ảnh (cách nhau bằng dấu phẩy)"
           name="image_url"
