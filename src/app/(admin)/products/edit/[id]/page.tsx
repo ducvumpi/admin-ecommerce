@@ -4,7 +4,9 @@ import { Edit, useForm, useSelect } from "@refinedev/antd";
 import { useCreate, useDelete, useList, useUpdate } from "@refinedev/core";
 import { Button, Form, Input, InputNumber, Select, Tag, message } from "antd";
 import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
-
+import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Image, Upload } from "antd";
+import { supabase } from "@app/libs/supabaseClient";
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SizeEntry {
   id?: number;
@@ -364,6 +366,7 @@ const VariantEditor = React.forwardRef<
   }
 
   const visible = entries.filter((e) => !e._deleted);
+  // Hàm upload ảnh lên Supabase Storage
 
   return (
     <div>
@@ -520,14 +523,20 @@ VariantEditor.displayName = "VariantEditor";
 // ─── Main Edit Page ───────────────────────────────────────────────────────────
 export default function ProductEdit() {
   const variantRef = useRef<VariantEditorRef>(null);
-
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [inputUrl, setInputUrl] = useState("");
+  // Thêm state lưu file chờ upload
+  const [pendingFiles, setPendingFiles] = useState<{ tempUrl: string; file: File }[]>([]);
   const { formProps, saveButtonProps, id } = useForm({
     action: "edit",
     resource: "products",
     redirect: "list",
     meta: { select: "*, categories(*)" },
   });
-
+  useEffect(() => {
+    const urls = formProps?.initialValues?.image_url;
+    if (urls) setImageUrls(Array.isArray(urls) ? urls : [urls]);
+  }, [formProps?.initialValues]);
   const { selectProps: categorySelectProps } = useSelect({
     resource: "categories",
     optionLabel: "name",
@@ -537,15 +546,62 @@ export default function ProductEdit() {
   // Wrap onFinish để lưu biến thể cùng lúc với form
   const handleFinish = async (values: any) => {
     try {
+      // Upload tất cả file đang pending
+      let finalUrls = [...imageUrls];
+
+      for (const { tempUrl, file } of pendingFiles) {
+        const realUrl = await uploadImage(file);
+        if (realUrl) {
+          // Thay thế blob URL bằng URL thật
+          finalUrls = finalUrls.map(u => u === tempUrl ? realUrl : u);
+          // Giải phóng blob URL
+          URL.revokeObjectURL(tempUrl);
+        }
+      }
+
+      setPendingFiles([]);
+      setImageUrls(finalUrls);
+
       await variantRef.current?.save();
-      // Gọi onFinish gốc của refine để lưu product
-      await formProps.onFinish?.(values);
+      await formProps.onFinish?.({ ...values, image_url: finalUrls });
     } catch {
       message.error("Lỗi khi lưu");
     }
   };
   const [form] = Form.useForm();
+  const uploadImage = async (file: File): Promise<string | null> => {
+    const ext = file.name.split(".").pop();
+    const fileName = `products/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 
+    const { error } = await supabase.storage
+      .from("image products") // ← đồng bộ tên bucket
+      .upload(fileName, file, { cacheControl: "3600", upsert: false });
+
+    if (error) { message.error("Upload thất bại: " + error.message); return null; }
+
+    const { data } = supabase.storage.from("image products").getPublicUrl(fileName);
+    return data.publicUrl;
+  };
+  const deleteImage = async (url: string) => {
+    if (url.startsWith("blob:")) return;
+
+    const bucketName = "image products";
+
+    const marker = "/object/public/image%20products/";
+    const marker2 = "/object/public/image products/";
+
+    let path = "";
+    if (url.includes(marker)) {
+      path = decodeURIComponent(url.split(marker)[1]);
+    } else if (url.includes(marker2)) {
+      path = url.split(marker2)[1];
+    }
+
+    if (!path) { message.error("Không tìm được path ảnh"); return; }
+
+    const { error } = await supabase.storage.from(bucketName).remove([path]);
+    if (error) message.error("Xóa ảnh thất bại: " + error.message);
+  };
   return (
     <Edit saveButtonProps={saveButtonProps}
       title="Chỉnh sửa sản phẩm">
@@ -575,23 +631,119 @@ export default function ProductEdit() {
           <Select {...categorySelectProps} />
         </Form.Item>
 
-        <Form.Item
+        {/* <Form.Item
           label="Giá theo màu & size"
           name="price"
           rules={[{ required: true }]}
         >
           <Input />
-        </Form.Item>
-        <Form.Item
-          label="Hình ảnh (cách nhau bằng dấu phẩy)"
-          name="image_url"
-          normalize={(value) =>
-            typeof value === "string"
-              ? value.split(",").map((s: string) => s.trim())
-              : value
-          }
-        >
-          <Input />
+        </Form.Item> */}
+        <Form.Item label="Hình ảnh sản phẩm" name="image_url">
+          {/* Preview grid */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+            {imageUrls.map((url, i) => (
+              <div key={i} style={{ position: "relative", width: 100, height: 100 }}>
+                <Image
+                  src={url}
+                  alt=""
+                  width={100}
+                  height={100}
+                  style={{ objectFit: "cover", borderRadius: 8, border: "1px solid #eee" }}
+                  fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg=="
+                />
+                <button
+                  onClick={async () => {
+                    const urlToRemove = imageUrls[i];
+                    const next = imageUrls.filter((_, idx) => idx !== i);
+                    setImageUrls(next);
+                    formProps.form?.setFieldValue("image_url", next);
+
+                    if (urlToRemove.startsWith("blob:")) {
+                      // Ảnh chưa upload → chỉ revoke, không cần xóa Storage
+                      setPendingFiles(prev => prev.filter(p => p.tempUrl !== urlToRemove));
+                      URL.revokeObjectURL(urlToRemove);
+                    } else {
+                      // Ảnh đã upload → xóa trên Storage
+                      await deleteImage(urlToRemove);
+                    }
+                  }}
+                  style={{
+                    position: "absolute", top: -8, right: -8,
+                    width: 22, height: 22, borderRadius: "50%",
+                    background: "#ff4d4f", border: "none", color: "#fff",
+                    cursor: "pointer", display: "flex", alignItems: "center",
+                    justifyContent: "center", fontSize: 11,
+                    boxShadow: "0 2px 6px rgba(0,0,0,.2)",
+                  }}
+                >
+                  <DeleteOutlined />
+                </button>
+              </div>
+            ))}
+
+            {/* Upload button */}
+            <Upload
+              accept="image/*"
+              showUploadList={false}
+              multiple
+              customRequest={async ({ file }) => {
+                // Chỉ tạo preview local, chưa upload
+                const tempUrl = URL.createObjectURL(file as File);
+                setPendingFiles(prev => [...prev, { tempUrl, file: file as File }]);
+                setImageUrls(prev => [...prev, tempUrl]);
+                formProps.form?.setFieldValue("image_url", [...imageUrls, tempUrl]);
+              }}
+            >
+              <div style={{
+                width: 100, height: 100, border: "1.5px dashed #d9d9d9",
+                borderRadius: 8, display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+                gap: 4, cursor: "pointer", background: "#fafafa",
+                transition: "border-color .2s",
+              }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "#1677ff")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "#d9d9d9")}
+              >
+                <PlusOutlined style={{ fontSize: 18, color: "#aaa" }} />
+                <span style={{ fontSize: 11, color: "#aaa", textAlign: "center", lineHeight: 1.3 }}>
+                  Upload<br />hoặc URL
+                </span>
+              </div>
+            </Upload>
+          </div>
+
+          {/* Input URL */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <Input
+              placeholder="Hoặc dán URL ảnh vào đây..."
+              value={inputUrl}
+              onChange={e => setInputUrl(e.target.value)}
+              onPressEnter={() => {
+                const url = inputUrl.trim();
+                if (!url) return;
+                const next = [...imageUrls, url];
+                setImageUrls(next);
+                formProps.form?.setFieldValue("image_url", next);
+                setInputUrl("");
+              }}
+            />
+            <Button
+              icon={<PlusOutlined />}
+              onClick={() => {
+                const url = inputUrl.trim();
+                if (!url) return;
+                const next = [...imageUrls, url];
+                setImageUrls(next);
+                formProps.form?.setFieldValue("image_url", next);
+                setInputUrl("");
+              }}
+            >
+              Thêm
+            </Button>
+          </div>
+          <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
+            Kéo thả / click để upload từ máy, hoặc nhập URL
+          </div>
         </Form.Item>
 
         <Form.Item label="Biến thể (màu & size & tồn kho)">
