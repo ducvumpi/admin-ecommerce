@@ -293,42 +293,279 @@ function SegmentTable({ segments }: any) {
     );
 }
 
-// ─── AI insight panel ─────────────────────────────────────────────────────────
-function InsightPanel({ period, onAnalyze }: any) {
-    return (
-        <div style={{
-            background: T.card, border: `0.5px solid ${T.border}`,
-            borderRadius: "var(--border-radius-lg)", padding: 16,
-        }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: T.text }}>Phân tích AI chuyên sâu</div>
-                    <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Dựa trên dữ liệu {period} ngày gần nhất</div>
-                </div>
-                <button
-                    onClick={onAnalyze}
+
+function InsightPanel({ period, data }: { period: number; data: PeriodData }) {
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<string | null>(null);
+    const [activePrompt, setActivePrompt] = useState<string | null>(null);
+
+    const d = data;
+    const ch = d.channels ?? [];
+
+    const channelText = [
+        `Website ${ch[0]?.pct ?? 0}%`,
+        `App ${ch[1]?.pct ?? 0}%`,
+        `Shopee ${ch[2]?.pct ?? 0}%`,
+        `Lazada ${ch[3]?.pct ?? 0}%`,
+    ].join(", ");
+
+    const mg = d.gross
+        ? (((d.gross - d.cogs) / d.gross) * 100).toFixed(1)
+        : "0.0";
+    const vip = d.segments?.[0];
+    const vipPct =
+        vip && d.rev ? ((vip.rev / d.rev) * 100).toFixed(1) : "0.0";
+    const vipAov = vip?.aov ? (vip.aov / 1000).toFixed(0) : "0";
+
+    const baseContext = [
+        `Dữ liệu ecommerce — kỳ ${period} ngày gần nhất:`,
+        `• Doanh thu ${fmtVND(d.rev)} (kỳ trước ${fmtVND(d.revPrev)}, ${delta(d.rev, d.revPrev)}%)`,
+        `• Đơn hàng ${fmtNumber(d.ord)} (kỳ trước ${fmtNumber(d.ordPrev)})`,
+        `• AOV ₫${(d.aov / 1000).toFixed(0)}K (kỳ trước ₫${(d.aovPrev / 1000).toFixed(0)}K)`,
+        `• Tỉ lệ chuyển đổi ${d.conv}% (kỳ trước ${d.convPrev}%)`,
+        `• Tỉ lệ hoàn trả ${d.refund}% (kỳ trước ${d.refundPrev}%)`,
+        `• Biên lợi nhuận gộp ${mg}%`,
+        `• Kênh: ${channelText}`,
+        `• Khách VIP chiếm ${vipPct}% doanh thu, AOV ₫${vipAov}K`,
+    ].join("\n");
+
+    const QUICK_PROMPTS: { label: string; icon: string; question: string }[] = [
+        {
+            icon: "📈",
+            label: "Xu hướng & cơ hội",
+            question: `${baseContext}\n\nPhân tích xu hướng nổi bật và 2–3 cơ hội tăng trưởng cụ thể với ước tính tác động.`,
+        },
+        {
+            icon: "⚠️",
+            label: "Rủi ro cần theo dõi",
+            question: `${baseContext}\n\nChỉ ra các rủi ro tiềm ẩn (hoàn trả cao, kênh yếu, AOV giảm...) và đề xuất hành động cụ thể.`,
+        },
+        {
+            icon: "👑",
+            label: "Phân tích khách VIP",
+            question: `${baseContext}\n\nPhân tích sâu về nhóm khách VIP: tỉ trọng, AOV so với trung bình, và chiến lược giữ chân / upsell.`,
+        },
+        {
+            icon: "🛒",
+            label: "Tối ưu kênh bán",
+            question: `${baseContext}\n\nSo sánh hiệu quả các kênh, kênh nào đang under-perform, đề xuất phân bổ ngân sách marketing.`,
+        },
+    ];
+
+    const ask = async (question: string, label: string) => {
+        setLoading(true);
+        setActivePrompt(label);
+        setResult(null);
+        try {
+            const res = await fetch("/api/ai-analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: "mistral-small-latest",
+                    max_tokens: 1000,
+                    system: "Bạn là chuyên gia phân tích dữ liệu ecommerce. Trả lời súc tích bằng tiếng Việt, dùng bullet points, tối đa 250 từ.",
+                    messages: [{ role: "user", content: question }],
+                }),
+            });
+
+            const json = await res.json();
+
+            // ← Mistral dùng format OpenAI, khác với Anthropic
+            const text = json.choices?.[0]?.message?.content ?? null;
+
+            if (!text) {
+                setResult(`❌ Không parse được:\n${JSON.stringify(json, null, 2)}`);
+                return;
+            }
+            setResult(text);
+
+
+        } catch {
+            setResult("❌ Lỗi kết nối. Vui lòng thử lại.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Render markdown-like: bold **text**, bullet •
+    const renderResult = (text: string) => {
+        return text.split("\n").map((line, i) => {
+            const formatted = line
+                .split(/(\*\*[^*]+\*\*)/)
+                .map((part, j) =>
+                    part.startsWith("**") && part.endsWith("**") ? (
+                        <strong key={j}>{part.slice(2, -2)}</strong>
+                    ) : (
+                        part
+                    )
+                );
+            return (
+                <div
+                    key={i}
                     style={{
-                        fontSize: 12, padding: "6px 14px",
-                        borderRadius: "var(--border-radius-md)",
-                        border: `0.5px solid ${T.blue}`,
-                        background: T.blue, color: "#fff",
-                        cursor: "pointer", fontWeight: 500,
+                        lineHeight: 1.7,
+                        marginBottom: line.trim() === "" ? 6 : 0,
+                        paddingLeft:
+                            line.trim().startsWith("•") || line.trim().startsWith("-")
+                                ? 4
+                                : 0,
                     }}
                 >
-                    Phân tích ngay ↗
-                </button>
+                    {formatted}
+                </div>
+            );
+        });
+    };
+
+    return (
+        <div
+            style={{
+                background: T.card,
+                border: `0.5px solid ${T.border}`,
+                borderRadius: "var(--border-radius-lg)",
+                padding: 16,
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+            }}
+        >
+            {/* Header */}
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                }}
+            >
+                <div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: T.text }}>
+                        Phân tích AI
+                    </div>
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>
+                        Chọn câu hỏi bên dưới — kết quả hiển thị ngay tại đây
+                    </div>
+                </div>
+                {result && (
+                    <button
+                        onClick={() => {
+                            setResult(null);
+                            setActivePrompt(null);
+                        }}
+                        style={{
+                            fontSize: 11,
+                            padding: "3px 10px",
+                            borderRadius: "var(--border-radius-md)",
+                            border: `0.5px solid ${T.border}`,
+                            background: "transparent",
+                            color: T.muted,
+                            cursor: "pointer",
+                        }}
+                    >
+                        Xoá kết quả
+                    </button>
+                )}
             </div>
-            <div style={{
-                background: "var(--color-background-secondary)",
-                borderRadius: "var(--border-radius-md)", padding: "16px",
-                textAlign: "center", color: T.muted, fontSize: 12, lineHeight: 1.7,
-            }}>
-                Nhấn &quot;Phân tích ngay&quot; — Claude sẽ đọc toàn bộ số liệu hiện tại và trả lời phân tích ngay trong cuộc trò chuyện này.
+
+            {/* Quick prompt buttons */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {QUICK_PROMPTS.map((p) => (
+                    <button
+                        key={p.label}
+                        onClick={() => ask(p.question, p.label)}
+                        disabled={loading}
+                        style={{
+                            fontSize: 12,
+                            padding: "6px 14px",
+                            borderRadius: 20,
+                            border: `0.5px solid ${activePrompt === p.label ? T.blue : T.border
+                                }`,
+                            background:
+                                activePrompt === p.label
+                                    ? T.blue + "14"
+                                    : "var(--color-background-secondary)",
+                            color: activePrompt === p.label ? T.blue : T.text,
+                            cursor: loading ? "not-allowed" : "pointer",
+                            opacity: loading && activePrompt !== p.label ? 0.5 : 1,
+                            transition: "all .15s",
+                            fontWeight: activePrompt === p.label ? 500 : 400,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                        }}
+                    >
+                        <span>{p.icon}</span>
+                        {p.label}
+                    </button>
+                ))}
             </div>
+
+            {/* Result area */}
+            {(loading || result) && (
+                <div
+                    style={{
+                        background: "var(--color-background-secondary)",
+                        borderRadius: "var(--border-radius-md)",
+                        padding: 16,
+                        minHeight: 80,
+                        position: "relative",
+                    }}
+                >
+                    {loading ? (
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                color: T.muted,
+                                fontSize: 12,
+                            }}
+                        >
+                            {/* Animated dots */}
+                            <div style={{ display: "flex", gap: 4 }}>
+                                {[0, 1, 2].map((i) => (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            width: 6,
+                                            height: 6,
+                                            borderRadius: "50%",
+                                            background: T.blue,
+                                            animation: `bounce 1.2s ease-in-out ${i * 0.2
+                                                }s infinite`,
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                            <style>{`@keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-5px)} }`}</style>
+                            Đang phân tích...
+                        </div>
+                    ) : (
+                        <div style={{ fontSize: 12, color: T.text, lineHeight: 1.7 }}>
+                            {/* Active prompt label */}
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    color: T.blue,
+                                    fontWeight: 500,
+                                    marginBottom: 10,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                }}
+                            >
+                                <span>
+                                    {QUICK_PROMPTS.find((p) => p.label === activePrompt)?.icon}
+                                </span>
+                                {activePrompt}
+                            </div>
+                            {renderResult(result!)}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
-
 // ─── Profit margin bar ────────────────────────────────────────────────────────
 function MarginBar({ gross, cogs }: any) {
     const net = gross - cogs;
@@ -528,8 +765,8 @@ export default function RevenueDashboard() {
                 </div>
             </div>
 
-            {/* AI Analysis */}
-            <InsightPanel period={period} onAnalyze={handleAnalyze} />
+
+            <InsightPanel period={period} data={d} />
         </div>
     );
 }
