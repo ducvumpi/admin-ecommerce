@@ -104,7 +104,7 @@ export default function LoginPage() {
                             <Input
                                 size="large"
                                 prefix={<MailOutlined style={{ color: "#9ca3af" }} />}
-                                placeholder="admin@shop.com"
+                                placeholder="admin@gmail.com"
                                 autoFocus
                                 style={{ borderRadius: 8, fontSize: 14 }}
                             />
@@ -119,7 +119,7 @@ export default function LoginPage() {
                             <Input.Password
                                 size="large"
                                 prefix={<LockOutlined style={{ color: "#9ca3af" }} />}
-                                placeholder="••••••••"
+                                placeholder="123456"
                                 style={{ borderRadius: 8, fontSize: 14 }}
                             />
                         </Form.Item>
